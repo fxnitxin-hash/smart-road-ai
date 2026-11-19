@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10243a">
+<title>Smart Road AI</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--navy:#10243a;--blue:#1769aa;--cyan:#20b8c9;--bg:#f3f6fa;--ink:#152235;--muted:#66758a;--line:#dce4ed;--red:#d94848;--amber:#d78b18;--green:#23845b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink)}
+header{background:linear-gradient(120deg,#10243a,#174e76);color:white;padding:20px 18px 18px;border-radius:0 0 22px 22px}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;border-radius:14px;background:#20b8c9;display:grid;place-items:center;font-size:24px}
+h1{font-size:21px;margin:0;letter-spacing:.3px}header p{margin:5px 0 0;color:#c6d9e9;font-size:12px}
+main{max-width:760px;margin:auto;padding:15px 14px 90px}
+.tabs{display:flex;gap:8px;overflow:auto;margin:15px 0}.tab{border:1px solid var(--line);background:white;color:var(--muted);padding:10px 14px;border-radius:999px;font-weight:700;white-space:nowrap}.tab.active{background:var(--navy);color:white;border-color:var(--navy)}
+.card{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 5px 18px #18324b0b}
+.card h2{font-size:16px;margin:0 0 12px}.sub{font-size:12px;color:var(--muted);line-height:1.5}
+button,.button{border:0;border-radius:12px;background:var(--blue);color:white;padding:12px 15px;font-weight:750;font-size:14px;cursor:pointer}
+button.secondary{background:#eaf2f8;color:#174e76}button.dark{background:var(--navy)}button.danger{background:#fff0f0;color:#a82d2d;border:1px solid #f3cccc}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px;font:inherit;background:white;color:var(--ink)}
+label{display:block;font-size:12px;font-weight:750;color:#42546a;margin:12px 0 6px}
+#preview{width:100%;max-height:280px;object-fit:contain;background:#101923;border-radius:13px;display:none;margin-top:12px}
+#map{height:330px;border-radius:14px;overflow:hidden;z-index:1}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:#f3f7fb;border-radius:13px;padding:12px}.stat b{font-size:23px;display:block}.stat span{font-size:11px;color:var(--muted)}
+.pill{display:inline-block;border-radius:99px;padding:4px 9px;font-size:11px;font-weight:800}.high{background:#ffe8e8;color:#b22d2d}.medium{background:#fff2d9;color:#94600b}.low{background:#e4f6ed;color:#176b47}
+.report{border:1px solid var(--line);border-radius:13px;padding:12px;margin:9px 0}.report-top{display:flex;justify-content:space-between;gap:10px;align-items:center}.report img{width:100%;max-height:150px;object-fit:cover;border-radius:9px;margin-top:9px}
+.hidden{display:none!important}.notice{background:#eaf5fb;border:1px solid #cce6f3;color:#245674;padding:11px;border-radius:12px;font-size:12px;line-height:1.5;margin:10px 0}
+footer{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:11px;z-index:500}
+.small{font-size:11px;color:var(--muted)}.spin{opacity:.7}
+@media(min-width:650px){main{padding-top:22px}.twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand"><div class="logo">🛣️</div><div><h1>SMART ROAD AI</h1><p>AI pothole detection · GPS reporting · Road maintenance</p></div></div>
+</header>
+<main>
+ <div class="tabs">
+  <button class="tab active" data-tab="capture">📷 Report</button>
+  <button class="tab" data-tab="mapview">🗺️ Map</button>
+  <button class="tab" data-tab="dashboard">📊 Dashboard</button>
+  <button class="tab" data-tab="settings">⚙️ AI Setup</button>
+ </div>
+
+ <section id="capture" class="pane">
+  <div class="card">
+   <h2>Capture road damage</h2>
+   <p class="sub">Take a clear photo of the road or choose an existing image. For best results, capture the pothole from a safe stationary position.</p>
+   <div class="row">
+    <button id="cameraBtn">📸 Open camera</button>
+    <button class="secondary" id="galleryBtn">Choose photo</button>
+   </div>
+   <input id="cameraInput" type="file" accept="image/*" capture="environment" class="hidden">
+   <input id="galleryInput" type="file" accept="image/*" class="hidden">
+   <img id="preview" alt="Selected road image">
+   <div class="row" style="margin-top:10px">
+    <button class="secondary" id="detectBtn" disabled>🤖 Run AI detection</button>
+    <button class="secondary" id="gpsBtn">📍 Get GPS</button>
+   </div>
+   <div id="aiStatus" class="notice">AI model is not configured yet. You can still create a field-test report. Configure a compatible model under AI Setup to enable automated detection.</div>
+   <div id="gpsStatus" class="small">GPS not captured yet.</div>
+  </div>
+  <div class="card">
+   <h2>Inspection details</h2>
+   <label for="severity">Estimated severity</label>
+   <select id="severity"><option value="Low">Low – small / shallow-looking</option><option value="Medium" selected>Medium – noticeable road damage</option><option value="High">High – large / potentially hazardous</option></select>
+   <label for="notes">Notes (optional)</label>
+   <textarea id="notes" rows="2" placeholder="Example: Near bus stop, left side of road"></textarea>
+   <label for="reporter">Reported by (optional)</label>
+   <input id="reporter" placeholder="Name or team">
+   <div class="row" style="margin-top:14px">
+    <button id="saveBtn" disabled>Submit pothole report</button>
+    <button class="secondary" id="clearBtn">Clear</button>
+   </div>
+   <p class="small">Reports are stored on this device in this prototype. They are not automatically sent to a government authority.</p>
+  </div>
+ </section>
+
+ <section id="mapview" class="pane hidden">
+  <div class="card"><h2>Pothole location map</h2><p class="sub">Pins use the GPS coordinates saved with each report. Tap a pin for its details.</p><div id="map"></div><p class="small" id="mapHint">No GPS-tagged reports yet.</p></div>
+ </section>
+
+ <section id="dashboard" class="pane hidden">
+  <div class="card">
+   <h2>Road maintenance dashboard</h2>
+   <div class="statgrid">
+    <div class="stat"><b id="totalCount">0</b><span>Total reports</span></div>
+    <div class="stat"><b id="highCount">0</b><span>High priority</span></div>
+    <div class="stat"><b id="gpsCount">0</b><span>GPS tagged</span></div>
+   </div>
+   <label for="filterSeverity">Filter reports</label>
+   <select id="filterSeverity"><option value="All">All severities</option><option>High</option><option>Medium</option><option>Low</option></select>
+   <div id="reportsList"></div>
+   <div class="row"><button class="secondary" id="exportBtn">Export CSV</button><button class="danger" id="deleteAllBtn">Delete all local reports</button></div>
+  </div>
+ </section>
+
+ <section id="settings" class="pane hidden">
+  <div class="card">
+   <h2>Connect AI pothole model</h2>
+   <div class="notice"><b>Model requirement:</b> Automated detection needs a trained pothole object-detection model hosted by an inference service. This app supports the Roboflow hosted inference API pattern. A model ID and private API key are required. Do not publish your API key in a public app.</div>
+   <label for="modelId">Roboflow model ID (example: pothole-detection/1)</label>
+   <input id="modelId" placeholder="your-project/1">
+   <label for="apiKey">Roboflow API key</label>
+   <input id="apiKey" type="password" placeholder="Paste API key">
+   <label for="confidence">Confidence threshold (%)</label>
+   <input id="confidence" type="number" min="1" max="99" value="40">
+   <button id="saveSettings" style="margin-top:12px">Save AI settings on this device</button>
+   <p class="small">For a public or production deployment, put inference behind your own backend so the API key is not exposed in the browser. Browser inference may also be blocked by provider CORS or account settings.</p>
+  </div>
+  <div class="card">
+   <h2>How the severity estimate works</h2>
+   <p class="sub">The prototype estimates severity from the detected bounding-box area relative to the image. This is only a rough visual proxy, not pothole depth, engineering assessment or a road-safety certification. Verify reports manually before maintenance decisions.</p>
+   <p class="sub">Low: smaller detected area · Medium: moderate area · High: larger area. The user can override the category before submitting.</p>
+  </div>
+ </section>
+</main>
+<footer>SMART ROAD AI · AAKRITI’26 · Mobile field prototype</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let selectedFile=null, imageData=null, gps=null, detections=[], map=null, markers=[];
+const STORAGE_KEY='smartRoadAIReportsV1', SETTINGS_KEY='smartRoadAISettingsV1';
+function reports(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch(e){return []}}
+function saveReports(a){localStorage.setItem(STORAGE_KEY,JSON.stringify(a))}
+function settings(){try{return JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}catch(e){return {}}}
+function setStatus(id,msg){$(id).textContent=msg}
+function activateTab(name){
+ document.querySelectorAll('.pane').forEach(x=>x.classList.toggle('hidden',x.id!==name));
+ document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===name));
+ if(name==='mapview') setTimeout(renderMap,100);
+ if(name==='dashboard') renderDashboard();
+}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>activateTab(b.dataset.tab)));
+$('cameraBtn').onclick=()=>$('cameraInput').click();
+$('galleryBtn').onclick=()=>$('galleryInput').click();
+$('cameraInput').onchange=handleFile;$('galleryInput').onchange=handleFile;
+function handleFile(e){
+ const f=e.target.files&&e.target.files[0];if(!f)return;
+ if(!f.type.startsWith('image/')){alert('Please choose an image file.');return}
+ selectedFile=f;detections=[];gps=null;
+ const r=new FileReader();r.onload=()=>{imageData=r.result;$('preview').src=imageData;$('preview').style.display='block';$('detectBtn').disabled=false;$('saveBtn').disabled=false;setStatus('aiStatus','Image ready. Run AI detection if a model is configured, or submit a manually classified field report.');setStatus('gpsStatus','GPS not captured for this image yet.');};r.readAsDataURL(f);
+}
+$('gpsBtn').onclick=()=>{
+ if(!navigator.geolocation){setStatus('gpsStatus','Geolocation is not supported by this browser.');return}
+ setStatus('gpsStatus','Getting GPS location…');
+ navigator.geolocation.getCurrentPosition(p=>{gps={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy};setStatus('gpsStatus',`GPS captured: ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)} (±${Math.round(gps.accuracy)} m)`);},e=>setStatus('gpsStatus','GPS error: '+e.message+'. Allow location permission and use HTTPS.'),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+};
+function base64Body(data){return data.substring(data.indexOf(',')+1)}
+$('detectBtn').onclick=async()=>{
+ const s=settings();
+ if(!imageData)return;
+ if(!s.modelId||!s.apiKey){setStatus('aiStatus','AI model not configured. Add your model ID and API key in AI Setup. Manual reporting is available.');return}
+ $('detectBtn').disabled=true;setStatus('aiStatus','Sending image to AI model…');
+ try{
+  const url=`https://detect.roboflow.com/${encodeURIComponent(s.modelId)}?api_key=${encodeURIComponent(s.apiKey)}&confidence=${encodeURIComponent(s.confidence||40)}`;
+  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:base64Body(imageData)});
+  if(!response.ok)throw new Error(`Inference service returned ${response.status}`);
+  const result=await response.json();detections=result.predictions||[];
+  if(!detections.length){setStatus('aiStatus','AI inference completed: no pothole detections above the selected confidence threshold. Check the photo or lower the threshold.');}
+  else{
+   const w=result.image?.width||1,h=result.image?.height||1;
+   const largest=Math.max(...detections.map(d=>(d.width*d.height)/(w*h)));
+   const sev=largest>.12?'High':largest>.035?'Medium':'Low';$('severity').value=sev;
+   setStatus('aiStatus',`AI found ${detections.length} detection(s). Highest confidence: ${Math.round(Math.max(...detections.map(d=>d.confidence||0))*100)}%. Suggested severity: ${sev}. Verify before submitting.`);
+  }
+ }catch(err){setStatus('aiStatus','AI request failed: '+err.message+'. Check model ID, API key, internet and provider CORS settings. You can still submit a manual report.');}
+ finally{$('detectBtn').disabled=false}
+};
+$('saveSettings').onclick=()=>{
+ const modelId=$('modelId').value.trim(),apiKey=$('apiKey').value.trim(),confidence=Math.max(1,Math.min(99,Number($('confidence').value)||40));
+ localStorage.setItem(SETTINGS_KEY,JSON.stringify({modelId,apiKey,confidence}));
+ alert('Settings saved on this device. Keep the API key private.');
+};
+(function loadSettings(){const s=settings();$('modelId').value=s.modelId||'';$('apiKey').value=s.apiKey||'';$('confidence').value=s.confidence||40})();
+$('saveBtn').onclick=()=>{
+ if(!imageData){alert('Capture or choose a road image first.');return}
+ const item={id:Date.now(),createdAt:new Date().toISOString(),severity:$('severity').value,notes:$('notes').value.trim(),reporter:$('reporter').value.trim(),lat:gps?.lat??null,lng:gps?.lng??null,accuracy:gps?.accuracy??null,image:imageData,detections:detections.length,status:'Pending'};
+ const all=reports();all.unshift(item);saveReports(all);alert('Pothole report saved on this device.');clearForm();renderDashboard();
+};
+function clearForm(){selectedFile=null;imageData=null;gps=null;detections=[];$('cameraInput').value='';$('galleryInput').value='';$('preview').src='';$('preview').style.display='none';$('detectBtn').disabled=true;$('saveBtn').disabled=true;$('notes').value='';$('reporter').value='';$('severity').value='Medium';setStatus('gpsStatus','GPS not captured yet.');setStatus('aiStatus','AI model is not configured yet. You can still create a field-test report.')}
+$('clearBtn').onclick=clearForm;
+function renderDashboard(){
+ const all=reports();$('totalCount').textContent=all.length;$('highCount').textContent=all.filter(x=>x.severity==='High').length;$('gpsCount').textContent=all.filter(x=>x.lat!==null).length;
+ const f=$('filterSeverity').value;const shown=all.filter(x=>f==='All'||x.severity===f);const host=$('reportsList');host.innerHTML='';
+ if(!shown.length){host.innerHTML='<p class="sub">No reports yet. Capture a road photo to create your first report.</p>';return}
+ shown.forEach(x=>{
+  const el=document.createElement('div');el.className='report';
+  const date=new Date(x.createdAt).toLocaleString();
+  const location=x.lat===null?'GPS unavailable':`${x.lat.toFixed(5)}, ${x.lng.toFixed(5)}`;
+  el.innerHTML=`<div class="report-top"><b>${x.severity} priority</b><span class="pill ${x.severity.toLowerCase()}">${x.status}</span></div><p class="small">${date} · ${location}</p><p class="sub">${escapeHtml(x.notes||'No additional notes')} · AI detections: ${x.detections}</p><img alt="Reported road image" src="${x.image}"><div class="row" style="margin-top:8px"><button class="secondary" data-status="${x.id}">Mark repaired</button><button class="danger" data-delete="${x.id}">Delete</button></div>`;
+  host.appendChild(el);
+ });
+ host.querySelectorAll('[data-status]').forEach(b=>b.onclick=()=>{const a=reports(),r=a.find(z=>z.id==b.dataset.status);if(r){r.status='Repaired';saveReports(a);renderDashboard()}});
+ host.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{if(confirm('Delete this report?')){saveReports(reports().filter(z=>z.id!=b.dataset.delete));renderDashboard()}});
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('filterSeverity').onchange=renderDashboard;
+function renderMap(){
+ if(!window.L){$('mapHint').textContent='Map library did not load. Check your internet connection.';return}
+ const all=reports().filter(x=>x.lat!==null&&x.lng!==null);
+ if(!map){map=L.map('map').setView([20.5937,78.9629],5);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map)}
+ markers.forEach(m=>map.removeLayer(m));markers=[];
+ all.forEach(x=>{const color=x.severity==='High'?'#d94848':x.severity==='Medium'?'#d78b18':'#23845b';const marker=L.circleMarker([x.lat,x.lng],{radius:9,color,fillColor:color,fillOpacity:.8}).addTo(map);marker.bindPopup(`<b>${x.severity} priority</b><br>${escapeHtml(x.notes||'Pothole report')}<br>Status: ${x.status}<br><small>${new Date(x.createdAt).toLocaleString()}</small>`);markers.push(marker)});
+ if(all.length){const group=L.featureGroup(markers);map.fitBounds(group.getBounds().pad(.2));$('mapHint').textContent=`Showing ${all.length} GPS-tagged report(s).`}
+ else{$('mapHint').textContent='No GPS-tagged reports yet. Capture GPS when submitting a report.'}
+ setTimeout(()=>map.invalidateSize(),100);
+}
+$('exportBtn').onclick=()=>{
+ const all=reports();if(!all.length){alert('No reports to export.');return}
+ const rows=[['id','created_at','severity','status','latitude','longitude','gps_accuracy_m','notes','reporter','ai_detections'],...all.map(x=>[x.id,x.createdAt,x.severity,x.status,x.lat??'',x.lng??'',x.accuracy??'',x.notes,x.reporter,x.detections])];
+ const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+ const blob=new Blob([csv],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='smart-road-ai-reports.csv';a.click();URL.revokeObjectURL(url);
+};
+$('deleteAllBtn').onclick=()=>{if(confirm('Permanently delete all reports stored in this browser?')){saveReports([]);renderDashboard();renderMap()}};
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
+renderDashboard();
+</script>
+</body>
+</html>
